@@ -97,8 +97,6 @@ class decorator_step_obs(BTZDecorator):
         tech_check(self, units.Zerg.Spire, "spire")
         tech_check(self, units.Zerg.HydraliskDen, "hydralisk_den")
 
-        BTZN().blackboard["troops"] = {"Zergling": 0, "Roach": 0, "2": 0, "3": 0, "4": 0}
-
         BTZN().blackboard["enemy_units"]= {val.value: 0 for val in units.Protoss}
         BTZN().blackboard["enemy_units"].update({val.value: 0 for val in units.Terran})
         BTZN().blackboard["enemy_units"].update({val.value: 0 for val in units.Zerg})

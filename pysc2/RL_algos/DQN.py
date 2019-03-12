@@ -41,8 +41,8 @@ class DQNModel():
         self.tau = 0.125  # for learning new model
 
         if self.architecture == "AlphaZero":
-            self.model = self._build_AZ_model(10)
-            self.target_model = self._build_AZ_model(10)
+            self.model = self._build_AZ_model(5)
+            self.target_model = self._build_AZ_model(5)
             import os
             os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
         else:
