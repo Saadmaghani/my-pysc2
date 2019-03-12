@@ -10,38 +10,68 @@ from collections import deque
 import tensorflow as tf
 from keras.models import Sequential
 from keras.layers import Dense
-from keras.optimizers import RMSprop
-from pysc2.RL_algos.RL_Model import RLModel
+from keras.optimizers import RMSprop, SGD
 
 EPISODES = 1000
 
-class DQNModel(RLModel):
+import pysc2.RL_algos.Alpha_Zero as AZ
+import keras
+import keras.layers
+
+
+# the loss function for DQN networks (1)
+def huber_loss(y_true, y_pred):
+    return tf.losses.huber_loss(y_true, y_pred)
+
+
+class DQNModel():
 
     # hidden_layers of type
-    def __init__(self, state_size, action_size, hidden_layers=[24, 24]):
+    def __init__(self, state_size, action_size, architecture="simple", hidden_layers=[24, 24]):
+        self.architecture = architecture
         self.state_size = state_size
         self.action_size = action_size
         self.memory = deque(maxlen=2000)
-        self.gamma = 0.95    # discount rate
+        self.gamma = 0.95  # discount rate
         self.epsilon = 1.0  # exploration rate
         self.epsilon_min = 0.01
         self.epsilon_decay = 0.995
         self.batch_size = 32  # takes batch sizes of 32 for learning
         self.learning_rate = 0.001  # for gradient descent
         self.tau = 0.125  # for learning new model
-        self.model = self._build_model(hidden_layers)
-        self.target_model = self._build_model(hidden_layers)
-        self.target_train(copy=True)
 
+        if self.architecture == "AlphaZero":
+            self.model = self._build_AZ_model(10)
+            self.target_model = self._build_AZ_model(10)
+            import os
+            os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+        else:
+            self.model = self._build_model(hidden_layers)
+            self.target_model = self._build_model(hidden_layers)
+        self._target_train(copy=True)
+
+
+
+
+    def _build_AZ_model(self, no_of_residual_layers):
+
+        main_input = keras.layers.Input(shape=(self.state_size, 1))
+
+        x = AZ.add_convolutional_layer(main_input, first=True)
+
+        for _ in range(no_of_residual_layers):
+            x = AZ.add_residual_layer(x)
+
+        #vh = AZ.value_head(x)
+        ph = AZ.policy_head(x, self.action_size)
+
+        model = keras.Model(inputs=[main_input], outputs=ph)
+        model.compile(loss=huber_loss, optimizer=SGD(lr=self.learning_rate))
+
+        return model
 
     def _build_model(self, hidden_layers):
-
-        # the loss function for DQN networks (1)
-        def huber_loss(y_true, y_pred):
-            return tf.losses.huber_loss(y_true, y_pred)
-
         # Neural Net for Deep-Q learning Model
-
         model = Sequential()
         model.add(Dense(hidden_layers[0], input_dim=self.state_size, activation='relu'))
         for hns in hidden_layers[1:-1]:
@@ -51,19 +81,20 @@ class DQNModel(RLModel):
                       optimizer=RMSprop(lr=self.learning_rate))
         return model
 
+
     def act(self, state):
         # epsilon - greedy function (1)
-        state = np.reshape(state, [1, len(state)])
+        state = self._normalize_state(state)
         act_values = self.model.predict(state)
         best_action = np.argmax(act_values[0])
         if np.random.rand() <= self.epsilon - self.epsilon/self.action_size:
             return random.choice([i for i in range(len(act_values[0])) if i != best_action])
         return best_action  # returns action
 
-    def learn(self, state, action, reward, next_state, done=False):
+    def learn(self, state, action_probs, reward, next_state, done=False):
         state = self._normalize_state(state)
         next_state = np.zeros([1, len(state)]) if next_state == "terminal" else self._normalize_state(next_state)
-        self.memory.append((state, action, reward, next_state, done))
+        self.memory.append((state, action_probs, reward, next_state, done))
         self._replay()
 
     def _replay(self):
@@ -73,9 +104,10 @@ class DQNModel(RLModel):
         minibatch = random.sample(self.memory, self.batch_size)
         for state, action, reward, next_state, done in minibatch:
             target = reward
+
+            # applying DDQN
             if not done:
-                target = (reward + self.gamma *
-                          np.amax(self.target_model.predict(next_state)[0]))
+                target += self.gamma * np.amax(self.target_model.predict(next_state)[0])
             target_f = self.model.predict(state)
             target_f[0][action] = target
             self.model.fit(state, target_f, verbose=0)
@@ -85,9 +117,9 @@ class DQNModel(RLModel):
             self.epsilon *= self.epsilon_decay
 
         # copy over model
-        self.target_train()
+        self._target_train()
 
-    def target_train(self, copy=False):
+    def _target_train(self, copy=False):
         weights = self.model.get_weights()
         target_weights = self.target_model.get_weights()
         for i in range(len(target_weights)):
@@ -105,9 +137,13 @@ class DQNModel(RLModel):
         self.model.save_weights(file_name)
 
     def _normalize_state(self, state):
+        if self.architecture == "AlphaZero":
+            state = np.atleast_3d(state)
+            return state
         state = np.array(state)
         state = np.reshape(state, [1, len(state)])
         return state
+
 """
 if __name__ == "__main__":
     env = gym.make('CartPole-v1')

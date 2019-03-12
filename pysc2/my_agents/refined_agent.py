@@ -10,7 +10,6 @@ from pysc2.agents import base_agent
 from pysc2.lib import actions
 from pysc2.lib import features
 
-from pysc2.RL_algos.QLearningTable import QLearningTable
 from pysc2.RL_algos.DQN import DQNModel
 
 _NO_OP = actions.FUNCTIONS.no_op.id
@@ -40,7 +39,8 @@ _NOT_QUEUED = [0]
 _QUEUED = [1]
 _SELECT_ALL = [2]
 
-DATA_FILE = 'refined_agent_data'
+
+DATA_FILE = 'AZ_refined_agent_data'
 
 ACTION_DO_NOTHING = 'donothing'
 ACTION_BUILD_SUPPLY_DEPOT = 'buildsupplydepot'
