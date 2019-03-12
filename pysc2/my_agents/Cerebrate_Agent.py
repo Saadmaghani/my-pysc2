@@ -3,8 +3,6 @@ from pysc2.env import sc2_env
 from pysc2.env.run_loop import run_loop
 from pysc2.lib import actions, features, units
 from absl import app
-import BeTr_Zerg
-import nodes_BeTr_Zerg
 import random
 from Tree.nodes_BeTr_Zerg import *
 from Tree.BeTr_Zerg import BTZSequence, BTZRoot
